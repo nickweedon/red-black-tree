@@ -1,5 +1,6 @@
 package au.org.weedon.redblacktree;
 
+import au.org.weedon.JavaSourceExtractor.JavaSourceExtractor;
 import guru.nidi.graphviz.attribute.Color;
 import guru.nidi.graphviz.engine.Format;
 import guru.nidi.graphviz.engine.Graphviz;
@@ -158,7 +159,9 @@ public class RBTreeDemo {
     public static void main(String[] args) throws IOException {
 
         // Example comment!!!
-        System.out.println(getAboveLine());
+        //System.out.println(getAboveLine());
+
+        JavaSourceExtractor.extractSource();
 
         //createGraph();
 
