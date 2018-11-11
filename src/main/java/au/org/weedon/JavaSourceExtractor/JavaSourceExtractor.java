@@ -27,7 +27,7 @@ public class JavaSourceExtractor {
         JavaSourceParser javaSourceParser = new JavaSourceParser(commonTokenStream);
 
         JavaSourceParser.ClassdefContext classdefContext = javaSourceParser.classdef();
-        JavaSourceExtractorVisitor visitor = new JavaSourceExtractorVisitor();
+        JavaSourceExtractorVisitor visitor = new JavaSourceExtractorVisitor(commonTokenStream);
         visitor.visit(classdefContext);
     }
 }

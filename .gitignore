@@ -4,6 +4,7 @@
 # Ignore media files that this program produces
 media/
 
+*.tokens
 
 # Compiled class file
 *.class
