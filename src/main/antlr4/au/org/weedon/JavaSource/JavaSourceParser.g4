@@ -6,14 +6,14 @@ options { tokenVocab=JavaSourceLexer; }
 
 classdef : CLASS_DEF  classbodyDef ;
 
-classbodyDef : START_BLOCK (classdef | methoddef )* END_BLOCK;
+classbodyDef : START_BLOCK (classdef | classmethod )* END_BLOCK;
 
-methodname: IDENTIFIER ;
 returntype: IDENTIFIER ;
 
-modifiers : METHOD_MODIFER* ;
+statement : STATEMENT ;
+methoddef : CLASS_METHOD ;
+comment : COMMENT;
+commentblock : COMMENT_BLOCK ;
 
-methodparams: METHOD_PARAMS ;
-
-methoddef :  CLASS_METHOD ;
+classmethod :  methoddef (statement | comment | commentblock)* ;
 
