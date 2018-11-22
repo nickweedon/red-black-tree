@@ -64,6 +64,9 @@ Total lexer+parser time 2497ms.
  */
 lexer grammar Java9Lexer;
 
+channels {
+    WHITE_SPACE
+}
 
 // LEXER
 
@@ -502,7 +505,7 @@ JavaLetterOrDigit
 // Whitespace and comments
 //
 
-WS  :  [ \t\r\n\u000C]+ -> skip
+WS  :  [ \t\r\n\u000C]+ -> channel(WHITE_SPACE)
     ;
 
 COMMENT

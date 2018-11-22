@@ -1,23 +1,27 @@
 package au.org.weedon.JavaSourceExtractor;
 
-import au.org.weedon.JavaSource.Java9BaseVisitor;
-import au.org.weedon.JavaSource.Java9Lexer;
 import au.org.weedon.JavaSource.Java9Parser;
+import au.org.weedon.JavaSource.Java9ParserBaseVisitor;
 import org.antlr.v4.runtime.CommonTokenStream;
+import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.Token;
+import org.apache.commons.lang.StringUtils;
 
-import java.util.List;
-import java.util.Stack;
+import java.util.*;
+import java.util.regex.Pattern;
 
 
-public class JavaSourceExtractorVisitor extends Java9BaseVisitor<String> {
+public class JavaSourceExtractorVisitor extends Java9ParserBaseVisitor<String> {
 
     private final CommonTokenStream commonTokenStream;
 
     private Stack<String> classNameStack = new Stack<>();
     private String returnType;
     private String methodDeclarator;
+    private int methodDeclaratorIndent;
     private String fullClassName;
+
+    private static final String NL = System.getProperty("line.separator");
 
     public JavaSourceExtractorVisitor(CommonTokenStream commonTokenStream) {
         this.commonTokenStream = commonTokenStream;
@@ -41,13 +45,62 @@ public class JavaSourceExtractorVisitor extends Java9BaseVisitor<String> {
         return String.join(".", classNameStack.subList(0, classNameStack.size()));
     }
 
+
+    private int getSpacesBeforeContext(ParserRuleContext context, int tabSpaces) {
+
+        final int ctxStartIndex = context.start.getTokenIndex();
+        final int ctxEndIndex = context.start.getStopIndex();
+
+        int currentTokenIndex, spaceCount;
+
+        tokenLoop: for(spaceCount = 0, currentTokenIndex = ctxStartIndex - 1;
+            currentTokenIndex >= 0;
+            --currentTokenIndex) {
+
+            String currentToken = commonTokenStream.get(currentTokenIndex).getText();
+
+            for(int i = currentToken.length() - 1; i >= 0; --i) {
+                if(currentToken.charAt(i) == '\t') {
+                    spaceCount += tabSpaces;
+                    continue;
+                }
+                if(currentToken.charAt(i) == ' ') {
+                    ++spaceCount;
+                    continue;
+                }
+                break tokenLoop;
+            }
+        }
+
+        return spaceCount;
+    }
+
+
+    private String getContextWithWhitespace(ParserRuleContext context) {
+
+        int startTokenIndex = context.start.getTokenIndex();
+        int stopTokenIndex = context.stop.getTokenIndex();
+
+        StringBuilder textWithNewlines = new StringBuilder();
+
+        for(int i = startTokenIndex; i <= stopTokenIndex; i++) {
+            Token currentToken = commonTokenStream.get(i);
+            textWithNewlines.append(currentToken.getText());
+        }
+
+        return textWithNewlines.toString();
+    }
+
     @Override
     public String visitMethodDeclaration(Java9Parser.MethodDeclarationContext ctx) {
 
         Java9Parser.MethodHeaderContext methodHeaderCtx = ctx.methodHeader();
 
         returnType = methodHeaderCtx.result().getText();
-        methodDeclarator = methodHeaderCtx.methodDeclarator().getText();
+
+        methodDeclaratorIndent = getSpacesBeforeContext(ctx, 4);
+        methodDeclarator = getContextWithWhitespace(methodHeaderCtx.methodDeclarator());
+
         fullClassName = getFullClassName();
 
         //System.out.println(fullyQualifiedMethodName);
@@ -56,14 +109,50 @@ public class JavaSourceExtractorVisitor extends Java9BaseVisitor<String> {
         return super.visitMethodDeclaration(ctx);
     }
 
+    private final static Pattern LTRIM = Pattern.compile("^\\s+");
+
+    public static String ltrim(String targetString) {
+        return LTRIM.matcher(targetString).replaceAll("");
+    }
+
+    public static int lSpaceCount(String targetString) {
+        for(int i = 0; i < targetString.length(); ++i) {
+            if(targetString.charAt(i) != ' ') {
+                return i;
+            }
+        }
+        return 0;
+    }
+
     @Override
     public String visitMethodBody(Java9Parser.MethodBodyContext ctx) {
 
-        String fullyQualifiedMethodName = returnType + " " + fullClassName + "#" + methodDeclarator;
-        String methodBody = ctx.block().getText();
+        StringBuilder methodBodyText = new StringBuilder();
 
-        System.out.println(fullyQualifiedMethodName + " " + methodBody);
+        //methodDeclaratorIndent
+        //String indentString = StringUtils.repeat(" ", methodDeclaratorIndent);
+        String methodBlock = getContextWithWhitespace(ctx.block());
+        methodBlock = methodBlock.replace("\t", StringUtils.repeat(" ", 4));
+        String lines[] = methodBlock.split("\\r?\\n");
+        for(int i = 0; i < lines.length; i++) {
+            String line = lines[i];
+            int lineLSpace = lSpaceCount(line);
+            int indent = Math.max(0, lineLSpace - methodDeclaratorIndent);
+            lines[i] =  StringUtils.repeat(" ", indent) + ltrim(line);
+        }
+        methodBlock = String.join(NL, lines);
 
+        methodBodyText
+                .append(NL)
+                .append(returnType)
+                .append(" ")
+                .append(fullClassName)
+                .append("#")
+                .append(methodDeclarator)
+                .append(methodBlock)
+                .append(NL);
+
+        System.out.println(methodBodyText);
 
         return super.visitMethodBody(ctx);
     }

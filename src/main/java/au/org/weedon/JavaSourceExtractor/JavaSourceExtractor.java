@@ -2,6 +2,7 @@ package au.org.weedon.JavaSourceExtractor;
 
 import au.org.weedon.JavaSource.Java9Lexer;
 import au.org.weedon.JavaSource.Java9Parser;
+import au.org.weedon.JavaSource.Java9ParserVisitor;
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonTokenStream;
 
@@ -27,7 +28,9 @@ public class JavaSourceExtractor {
         Java9Parser javaSourceParser = new Java9Parser(commonTokenStream);
 
         Java9Parser.CompilationUnitContext classdefContext = javaSourceParser.compilationUnit();
+
         JavaSourceExtractorVisitor visitor = new JavaSourceExtractorVisitor(commonTokenStream);
+
         visitor.visit(classdefContext);
     }
 }
