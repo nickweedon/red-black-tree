@@ -137,6 +137,7 @@ public class RBTreeDemo {
 
     private static String getAboveLine() {
         StackTraceElement stackTraceElement = Thread.currentThread().getStackTrace()[2];
+        System.out.println("STE: " + stackTraceElement.getClassName() + "#" + stackTraceElement.getMethodName());
         int line = stackTraceElement.getLineNumber();
         String relativeFileName = getRelativeFileName(stackTraceElement);
 
@@ -162,6 +163,7 @@ public class RBTreeDemo {
         //System.out.println(getAboveLine());
 
         JavaSourceExtractor.extractSource();
+        System.out.println("Line: " + getAboveLine());
 
         //createGraph();
 

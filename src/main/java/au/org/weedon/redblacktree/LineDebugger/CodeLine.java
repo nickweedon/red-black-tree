@@ -1,22 +1,19 @@
 package au.org.weedon.redblacktree.LineDebugger;
 
-class CodeLine {
-    String code;
-    int realNumber;
+import com.google.common.collect.Range;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.RequiredArgsConstructor;
+import lombok.ToString;
 
-    public String getCode() {
-        return code;
-    }
-
-    public void setCode(String code) {
-        this.code = code;
-    }
-
-    public int getRealNumber() {
-        return realNumber;
-    }
-
-    public void setRealNumber(int realNumber) {
-        this.realNumber = realNumber;
-    }
+@Getter
+@Setter
+@RequiredArgsConstructor
+@ToString
+public class CodeLine {
+    private final ClassMethodCode classMethodCode;
+    private final String code;
+    private final int index;
+    private final int lineNumber;
+    private Range<Integer> statementRange;
 }

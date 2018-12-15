@@ -2,6 +2,9 @@ package au.org.weedon.JavaSourceExtractor;
 
 import au.org.weedon.JavaSource.Java9Parser;
 import au.org.weedon.JavaSource.Java9ParserBaseVisitor;
+import au.org.weedon.redblacktree.LineDebugger.ClassFileCode;
+import au.org.weedon.redblacktree.LineDebugger.ClassMethodCode;
+import au.org.weedon.redblacktree.LineDebugger.CodeLine;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.Token;
@@ -11,19 +14,24 @@ import java.util.*;
 import java.util.regex.Pattern;
 
 
-public class JavaSourceExtractorVisitor extends Java9ParserBaseVisitor<String> {
+public class JavaFileMethodExtractorVisitor extends Java9ParserBaseVisitor<String> {
 
     private final CommonTokenStream commonTokenStream;
 
     private Stack<String> classNameStack = new Stack<>();
     private String returnType;
     private String methodDeclarator;
+    private String methodName;
     private int methodDeclaratorIndent;
     private String fullClassName;
 
-    private static final String NL = System.getProperty("line.separator");
+    private ClassFileCode classFileCode;
 
-    public JavaSourceExtractorVisitor(CommonTokenStream commonTokenStream) {
+    public ClassFileCode getClassFileCode() {
+        return classFileCode;
+    }
+
+    public JavaFileMethodExtractorVisitor(CommonTokenStream commonTokenStream) {
         this.commonTokenStream = commonTokenStream;
     }
 
@@ -32,6 +40,10 @@ public class JavaSourceExtractorVisitor extends Java9ParserBaseVisitor<String> {
 
 
         String className = ctx.identifier().getText();
+
+        if(classNameStack.size() == 0) {
+            classFileCode = new ClassFileCode(className);
+        }
         classNameStack.push(className);
 
         String retValue = super.visitNormalClassDeclaration(ctx);
@@ -45,8 +57,7 @@ public class JavaSourceExtractorVisitor extends Java9ParserBaseVisitor<String> {
         return String.join(".", classNameStack.subList(0, classNameStack.size()));
     }
 
-
-    private int getSpacesBeforeContext(ParserRuleContext context, int tabSpaces) {
+    private int getSpacesBeforeContext(ParserRuleContext context) {
 
         final int ctxStartIndex = context.start.getTokenIndex();
         final int ctxEndIndex = context.start.getStopIndex();
@@ -60,10 +71,6 @@ public class JavaSourceExtractorVisitor extends Java9ParserBaseVisitor<String> {
             String currentToken = commonTokenStream.get(currentTokenIndex).getText();
 
             for(int i = currentToken.length() - 1; i >= 0; --i) {
-                if(currentToken.charAt(i) == '\t') {
-                    spaceCount += tabSpaces;
-                    continue;
-                }
                 if(currentToken.charAt(i) == ' ') {
                     ++spaceCount;
                     continue;
@@ -74,6 +81,66 @@ public class JavaSourceExtractorVisitor extends Java9ParserBaseVisitor<String> {
 
         return spaceCount;
     }
+
+    private String fixLineIndent(String line) {
+        int lineLSpace = lSpaceCount(line);
+        int indent = Math.max(0, lineLSpace - methodDeclaratorIndent);
+        return StringUtils.repeat(" ", indent) + ltrim(line);
+    }
+
+    private void addCodeLinesWithWhitespace(ClassMethodCode classMethodCode, ParserRuleContext context) {
+
+        int startTokenIndex = context.start.getTokenIndex();
+        int stopTokenIndex = context.stop.getTokenIndex();
+
+        final List<CodeLine> codeLines = classMethodCode.getCodeLines();
+
+        if(startTokenIndex == stopTokenIndex) {
+            return;
+        }
+
+        StringBuilder currentLineText = new StringBuilder();
+        StringBuilder linePrefix = new StringBuilder();
+
+        int i = startTokenIndex;
+        Token currentToken = commonTokenStream.get(i++);
+        int lastLine = currentToken.getLine();
+        currentLineText.append(currentToken.getText());
+        int currentLineNum = -1;
+
+        for(; i <= stopTokenIndex; i++) {
+            currentToken = commonTokenStream.get(i);
+            currentLineNum = currentToken.getLine();
+            if(currentLineNum != lastLine) {
+                // Need to backtrack to the last newline as the token includes all whitespace following
+                // the newline at the next line.
+                for(int j = currentLineText.length() - 1; currentLineText.charAt(j) != '\n'; --j) {
+                    linePrefix.append(currentLineText.charAt(j));
+                }
+
+                // Strip the whitespace following the newline
+                currentLineText.setLength(currentLineText.length() - linePrefix.length());
+                CodeLine codeLine = new CodeLine(classMethodCode, fixLineIndent(currentLineText.toString()), codeLines.size(), lastLine);
+                codeLines.add(codeLine);
+                classFileCode.getCodeLineMap().put(lastLine, codeLine);
+                currentLineText.setLength(0);
+
+                // Add back the whitespace to the start of the next line
+                if(linePrefix.length() != 0) {
+                    currentLineText.append(linePrefix.reverse().toString());
+                    linePrefix.setLength(0);
+                }
+            }
+            currentLineText.append(currentToken.getText());
+            lastLine = currentLineNum;
+        }
+        if(currentLineText.length() != 0) {
+            CodeLine codeLine = new CodeLine(classMethodCode, fixLineIndent(currentLineText.toString()), codeLines.size(), currentLineNum);
+            codeLines.add(codeLine);
+            classFileCode.getCodeLineMap().put(lastLine, codeLine);
+        }
+    }
+
 
 
     private String getContextWithWhitespace(ParserRuleContext context) {
@@ -98,7 +165,8 @@ public class JavaSourceExtractorVisitor extends Java9ParserBaseVisitor<String> {
 
         returnType = methodHeaderCtx.result().getText();
 
-        methodDeclaratorIndent = getSpacesBeforeContext(ctx, 4);
+        methodDeclaratorIndent = getSpacesBeforeContext(ctx);
+        methodName = methodHeaderCtx.methodDeclarator().identifier().getText();
         methodDeclarator = getContextWithWhitespace(methodHeaderCtx.methodDeclarator());
 
         fullClassName = getFullClassName();
@@ -127,32 +195,10 @@ public class JavaSourceExtractorVisitor extends Java9ParserBaseVisitor<String> {
     @Override
     public String visitMethodBody(Java9Parser.MethodBodyContext ctx) {
 
-        StringBuilder methodBodyText = new StringBuilder();
 
-        //methodDeclaratorIndent
-        //String indentString = StringUtils.repeat(" ", methodDeclaratorIndent);
-        String methodBlock = getContextWithWhitespace(ctx.block());
-        methodBlock = methodBlock.replace("\t", StringUtils.repeat(" ", 4));
-        String lines[] = methodBlock.split("\\r?\\n");
-        for(int i = 0; i < lines.length; i++) {
-            String line = lines[i];
-            int lineLSpace = lSpaceCount(line);
-            int indent = Math.max(0, lineLSpace - methodDeclaratorIndent);
-            lines[i] =  StringUtils.repeat(" ", indent) + ltrim(line);
-        }
-        methodBlock = String.join(NL, lines);
-
-        methodBodyText
-                .append(NL)
-                .append(returnType)
-                .append(" ")
-                .append(fullClassName)
-                .append("#")
-                .append(methodDeclarator)
-                .append(methodBlock)
-                .append(NL);
-
-        System.out.println(methodBodyText);
+        ClassMethodCode classMethodCode = new ClassMethodCode(returnType, fullClassName, methodName, methodDeclarator);
+        addCodeLinesWithWhitespace(classMethodCode, ctx.block());
+        classFileCode.getClassMethodCodeMap().put(methodName, classMethodCode);
 
         return super.visitMethodBody(ctx);
     }

@@ -84,7 +84,9 @@ public class RBTree<V extends Comparable> {
 		}
 
 		private RBNode<V> getNextNode() {
-			while(!dfsStack.empty()) {
+			while(
+					!dfsStack.empty()
+            ) {
 				BinaryTreeStackFrame<V> stackFrame = dfsStack.pop();
 				RBNode<V> node = stackFrame.getRbNode();
 
@@ -92,10 +94,14 @@ public class RBTree<V extends Comparable> {
 					case Preorder: {
 						stackFrame.setTraversalState(TraversalOrder.Inorder);
 						dfsStack.add(stackFrame);
-						if(!node.getLeft().isNil()) {
+						if(
+						        !node.getLeft().isNil()
+                        ) {
 							dfsStack.add(new BinaryTreeStackFrame<V>(node.getLeft()));
 						}
-						if(traversalOrder == TraversalOrder.Preorder) {
+						if(
+						        traversalOrder == TraversalOrder.Preorder
+                        ) {
 							return node;
 						}
 						break;
@@ -103,16 +109,22 @@ public class RBTree<V extends Comparable> {
 					case Inorder: {
 						stackFrame.setTraversalState(TraversalOrder.Postorder);
 						dfsStack.add(stackFrame);
-						if(!node.getRight().isNil()) {
+						if(
+						        !node.getRight().isNil()
+                        ) {
 							dfsStack.add(new BinaryTreeStackFrame<V>(node.getRight()));
 						}
-						if(traversalOrder == TraversalOrder.Inorder) {
+						if(
+						        traversalOrder == TraversalOrder.Inorder
+                        ) {
 							return node;
 						}
 						break;
 					}
 					case Postorder: {
-						if(traversalOrder == TraversalOrder.Postorder) {
+						if(
+						        traversalOrder == TraversalOrder.Postorder
+                        ) {
 							return node;
 						}
 						break;
@@ -124,7 +136,10 @@ public class RBTree<V extends Comparable> {
 
 		@Override
 		public boolean hasNext() {
-			if(queuedNode != null) {
+			// Crap
+			if(
+			        queuedNode != null
+            ) {
 				return true;
 			}
 			queuedNode = getNextNode();
@@ -139,7 +154,9 @@ public class RBTree<V extends Comparable> {
 
 			queuedNode = null;
 
-			if(returnedNode == null) {
+			if(
+			        returnedNode == null
+            ) {
 				throw new RuntimeException("DFSNodeIterator next() called before calling hasNext()");
 			}
 
@@ -149,7 +166,9 @@ public class RBTree<V extends Comparable> {
 
 	public void add(V value) {
 
-		if(head.isNil()) {
+		if(
+		        head.isNil()
+        ) {
 			head = nodeBuilder.setValue(value).build();
 			return;
 		}
@@ -159,7 +178,9 @@ public class RBTree<V extends Comparable> {
 
 	@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 	private int compareNodes(Optional<V> valueA, Optional<V> valueB) {
-		if(!valueA.isPresent() && !valueB.isPresent()) {
+		if(
+		        !valueA.isPresent() && !valueB.isPresent()
+        ) {
 			return 0;
 		}
 		//noinspection ConstantConditions,unchecked
@@ -170,14 +191,18 @@ public class RBTree<V extends Comparable> {
 	private void addNode(RBNode<V> currentNode, RBNode<V> valueNode) {
 
 		if(compareNodes(valueNode.getValue(), currentNode.getValue()) > 0) {
-			if(currentNode.getLeft().isNil()) {
+			if(
+			        currentNode.getLeft().isNil()
+            ) {
 				currentNode.setLeft(valueNode);
 				valueNode.setParent(currentNode);
 			} else {
 				addNode(currentNode.getLeft(), valueNode);
 			}
 		} else {
-			if(currentNode.getRight().isNil()) {
+			if(
+			        currentNode.getRight().isNil()
+            ) {
 				currentNode.setRight(valueNode);
 				valueNode.setParent(currentNode);
 			} else {

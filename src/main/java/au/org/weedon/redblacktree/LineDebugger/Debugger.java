@@ -9,7 +9,7 @@ import java.util.regex.Pattern;
 
 public class Debugger {
 
-    private Map<String, ClassCode> classCodeMap = new HashMap<>();
+    private Map<String, ClassFileCode> classCodeMap = new HashMap<>();
 
     private static String getRelativeFileName(StackTraceElement stackTraceElement) {
         String className = stackTraceElement.getClassName();

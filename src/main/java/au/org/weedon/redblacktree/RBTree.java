@@ -60,15 +60,12 @@ public class RBTree<V extends Comparable> {
             public TraversalOrder getTraversalState() {
                 return traversalState;
             }
-
             public void setTraversalState(TraversalOrder traversalState) {
                 this.traversalState = traversalState;
             }
-
             public RBNode<V> getRbNode() {
                 return rbNode;
             }
-
             public void setRbNode(RBNode<V> rbNode) {
                 this.rbNode = rbNode;
             }
