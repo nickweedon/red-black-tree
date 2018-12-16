@@ -117,12 +117,42 @@ public class JavaSourceExtractor {
     }
 
     private static void printCode(ClassFileCode classFileCode) {
+
         for(ClassMethodCode classMethodCode : classFileCode.getClassMethodCodeMap().values()) {
 
             StringBuilder methodBodyText = new StringBuilder();
-            String methodBlock = "";
+            StringBuilder methodBlock = new StringBuilder();
             for(CodeLine codeLine : classMethodCode.getCodeLines()) {
-                methodBlock += codeLine.getLineNumber() + ": " + codeLine.getCode();
+                //methodBlock += codeLine.getLineNumber() + ": " + codeLine.getCode();
+                if(codeLine.getStatementRange() != null) {
+/*
+                    methodBlock.append(codeLine.getStatementRange().toString());
+                    methodBlock.append(" =>");
+*/
+
+                    String code = codeLine.getCode();
+                    int i = 0;
+                    for (; i < code.length(); ++i) {
+                        if(i == codeLine.getStatementRange().lowerEndpoint() || i == codeLine.getStatementRange().upperEndpoint()) {
+                            methodBlock.append("**");
+                        }
+                        methodBlock.append(code.charAt(i));
+                    }
+                    if(i == codeLine.getStatementRange().upperEndpoint()) {
+                        methodBlock.append("**");
+                    }
+                    methodBlock.append(NL);
+                } else {
+/*
+                    if(codeLine.getStatementRange() != null) {
+                        methodBlock.append(codeLine.getStatementRange().toString());
+                        methodBlock.append(" => ");
+                    }
+*/
+                    methodBlock.append(codeLine.getCode());
+                    methodBlock.append(NL);
+                }
+
             }
 
             //String methodBlock = String.join("", codeLines.stream().map(CodeLine::getCode).collect(Collectors.toList()));
@@ -174,10 +204,9 @@ public class JavaSourceExtractor {
 
         JavaStatementRecognizerVisitor statementRecognizerVisitor = new JavaStatementRecognizerVisitor(classFileCode, commonTokenStream);
 
-        printCode(classFileCode);
-
         statementRecognizerVisitor.visit(classdefContext);
 
+        printCode(classFileCode);
 
 
 

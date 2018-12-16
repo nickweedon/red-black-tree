@@ -14,5 +14,6 @@ public class ClassMethodCode {
     private final String fullClassName;
     private final String methodName;
     private final String methodSignature;
+    private final int methodIndent;
     private final List<CodeLine> codeLines = new ArrayList<>();
 }

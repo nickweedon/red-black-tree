@@ -88,6 +88,13 @@ public class JavaFileMethodExtractorVisitor extends Java9ParserBaseVisitor<Strin
         return StringUtils.repeat(" ", indent) + ltrim(line);
     }
 
+    private String trimTrailingNewlines(String line) {
+        int i = line.length() - 1;
+        //noinspection StatementWithEmptyBody
+        for(; i >= 0 && (line.charAt(i) == '\r' || line.charAt(i) == '\n');--i);
+        return line.substring(0, i + 1);
+    }
+
     private void addCodeLinesWithWhitespace(ClassMethodCode classMethodCode, ParserRuleContext context) {
 
         int startTokenIndex = context.start.getTokenIndex();
@@ -120,7 +127,7 @@ public class JavaFileMethodExtractorVisitor extends Java9ParserBaseVisitor<Strin
 
                 // Strip the whitespace following the newline
                 currentLineText.setLength(currentLineText.length() - linePrefix.length());
-                CodeLine codeLine = new CodeLine(classMethodCode, fixLineIndent(currentLineText.toString()), codeLines.size(), lastLine);
+                CodeLine codeLine = new CodeLine(classMethodCode, fixLineIndent(trimTrailingNewlines(currentLineText.toString())), codeLines.size(), lastLine);
                 codeLines.add(codeLine);
                 classFileCode.getCodeLineMap().put(lastLine, codeLine);
                 currentLineText.setLength(0);
@@ -135,7 +142,7 @@ public class JavaFileMethodExtractorVisitor extends Java9ParserBaseVisitor<Strin
             lastLine = currentLineNum;
         }
         if(currentLineText.length() != 0) {
-            CodeLine codeLine = new CodeLine(classMethodCode, fixLineIndent(currentLineText.toString()), codeLines.size(), currentLineNum);
+            CodeLine codeLine = new CodeLine(classMethodCode, fixLineIndent(trimTrailingNewlines(currentLineText.toString())), codeLines.size(), currentLineNum);
             codeLines.add(codeLine);
             classFileCode.getCodeLineMap().put(lastLine, codeLine);
         }
@@ -196,7 +203,7 @@ public class JavaFileMethodExtractorVisitor extends Java9ParserBaseVisitor<Strin
     public String visitMethodBody(Java9Parser.MethodBodyContext ctx) {
 
 
-        ClassMethodCode classMethodCode = new ClassMethodCode(returnType, fullClassName, methodName, methodDeclarator);
+        ClassMethodCode classMethodCode = new ClassMethodCode(returnType, fullClassName, methodName, methodDeclarator, methodDeclaratorIndent);
         addCodeLinesWithWhitespace(classMethodCode, ctx.block());
         classFileCode.getClassMethodCodeMap().put(methodName, classMethodCode);
 
