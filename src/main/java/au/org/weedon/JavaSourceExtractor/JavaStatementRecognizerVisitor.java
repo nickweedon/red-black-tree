@@ -4,6 +4,7 @@ import au.org.weedon.JavaSource.Java9Parser;
 import au.org.weedon.JavaSource.Java9ParserBaseVisitor;
 import au.org.weedon.redblacktree.LineDebugger.ClassFileCode;
 import au.org.weedon.redblacktree.LineDebugger.CodeLine;
+import au.org.weedon.redblacktree.LineDebugger.Statement;
 import com.google.common.collect.Range;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -51,12 +52,16 @@ public class JavaStatementRecognizerVisitor extends Java9ParserBaseVisitor<Strin
             // Just skip this statement if we don't care about it
             return;
         }
-        if(codeLine.getStatementRange() != null) {
+        if(codeLine.getStatement() != null) {
+            //TODO: Fix this
+            throw new ParseException("More than one statement found at code line: " + codeLine.getCode());
+/*
             throw new ParseException("More than one statement found at code line: " + codeLine.getCode() + "Previous statement: '"
                     + codeLine.getCode().substring(
                             codeLine.getStatementRange().lowerEndpoint(), codeLine.getStatementRange().upperEndpoint())
                     + "' Additional statement first token: '" + startToken.getText() + "'"
             );
+*/
             // Just skip this statement if we don't care about it
             //return super.visitStatement(ctx);
         }
@@ -67,10 +72,19 @@ public class JavaStatementRecognizerVisitor extends Java9ParserBaseVisitor<Strin
             lastToken = currentToken;
             currentToken = commonTokenStream.get(nextTokenIndex++);
         }
-        codeLine.setStatementRange(Range.closed(
-                startToken.getCharPositionInLine() - codeLine.getClassMethodCode().getMethodIndent(),
-                lastToken.getCharPositionInLine() - codeLine.getClassMethodCode().getMethodIndent()
-        ));
+
+        Statement statement = new Statement(
+                Range.closed(
+                        startToken.getCharPositionInLine() - codeLine.getClassMethodCode().getMethodIndent(),
+                        lastToken.getCharPositionInLine() - codeLine.getClassMethodCode().getMethodIndent()
+                ),
+                Range.closed(
+                        codeLine,
+                        codeLine
+                )
+        );
+
+        codeLine.setStatement(statement);
     }
 
     @Override

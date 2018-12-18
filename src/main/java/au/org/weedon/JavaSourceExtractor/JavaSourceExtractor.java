@@ -5,11 +5,13 @@ import au.org.weedon.JavaSource.Java9Parser;
 import au.org.weedon.redblacktree.LineDebugger.ClassFileCode;
 import au.org.weedon.redblacktree.LineDebugger.ClassMethodCode;
 import au.org.weedon.redblacktree.LineDebugger.CodeLine;
+import au.org.weedon.redblacktree.LineDebugger.Statement;
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonTokenStream;
 
 import java.io.*;
 import java.util.LinkedList;
+import java.util.Optional;
 import java.util.Queue;
 
 public class JavaSourceExtractor {
@@ -116,6 +118,37 @@ public class JavaSourceExtractor {
 
     }
 
+    private static boolean isUpperStatement(CodeLine codeLine) {
+        return getUpperStatementBounds(codeLine).isPresent();
+    }
+
+    private static boolean isLowerStatement(CodeLine codeLine) {
+        return getLowerStatementBounds(codeLine).isPresent();
+    }
+
+    private static Optional<Integer> getUpperStatementBounds(CodeLine codeLine) {
+        Statement statement = codeLine.getStatement();
+        if(statement == null) {
+            return Optional.empty();
+        }
+        if(statement.getCodeLineRange().upperEndpoint() != codeLine) {
+            return Optional.empty();
+        }
+        return Optional.of(statement.getColumnRange().upperEndpoint());
+    }
+
+    private static Optional<Integer> getLowerStatementBounds(CodeLine codeLine) {
+        Statement statement = codeLine.getStatement();
+        if(statement == null) {
+            return Optional.empty();
+        }
+        if(statement.getCodeLineRange().lowerEndpoint() != codeLine) {
+            return Optional.empty();
+        }
+        return Optional.of(statement.getColumnRange().lowerEndpoint());
+    }
+
+
     private static void printCode(ClassFileCode classFileCode) {
 
         for(ClassMethodCode classMethodCode : classFileCode.getClassMethodCodeMap().values()) {
@@ -124,21 +157,23 @@ public class JavaSourceExtractor {
             StringBuilder methodBlock = new StringBuilder();
             for(CodeLine codeLine : classMethodCode.getCodeLines()) {
                 //methodBlock += codeLine.getLineNumber() + ": " + codeLine.getCode();
-                if(codeLine.getStatementRange() != null) {
+                if(isLowerStatement(codeLine) || isUpperStatement(codeLine)) {
 /*
                     methodBlock.append(codeLine.getStatementRange().toString());
                     methodBlock.append(" =>");
 */
+                    int lowerIndex = getLowerStatementBounds(codeLine).orElse(-1);
+                    int upperIndex = getUpperStatementBounds(codeLine).orElse(-1);
 
                     String code = codeLine.getCode();
                     int i = 0;
                     for (; i < code.length(); ++i) {
-                        if(i == codeLine.getStatementRange().lowerEndpoint() || i == codeLine.getStatementRange().upperEndpoint()) {
+                        if(i == lowerIndex || i == upperIndex) {
                             methodBlock.append("**");
                         }
                         methodBlock.append(code.charAt(i));
                     }
-                    if(i == codeLine.getStatementRange().upperEndpoint()) {
+                    if(i == upperIndex) {
                         methodBlock.append("**");
                     }
                     methodBlock.append(NL);
