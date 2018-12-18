@@ -8,11 +8,9 @@ import com.google.common.collect.Range;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.antlr.v4.runtime.CommonTokenStream;
+import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.Token;
-import org.antlr.v4.runtime.tree.ParseTree;
 import org.apache.http.ParseException;
-
-import java.util.List;
 
 @RequiredArgsConstructor
 public class JavaStatementRecognizerVisitor extends Java9ParserBaseVisitor<String> {
@@ -23,47 +21,42 @@ public class JavaStatementRecognizerVisitor extends Java9ParserBaseVisitor<Strin
     @Getter
     static class NestedStatementVisitor extends Java9ParserBaseVisitor<String> {
         private int tokenIndex = Integer.MAX_VALUE;
-        private boolean isBlockStatement = false;
+        private boolean isBlockStart = false;
+        private boolean isStatement;
 
         @Override
         public String visitStatement(Java9Parser.StatementContext ctx) {
 
+            isStatement = true;
             tokenIndex = ctx.start.getTokenIndex();
             return null;
         }
 
         @Override
         public String visitBlock(Java9Parser.BlockContext ctx) {
-            isBlockStatement = true;
+            isBlockStart = true;
             return null;
         }
     }
 
-    @Override
-    public String visitStatement(Java9Parser.StatementContext ctx) {
-
-        NestedStatementVisitor nestedStatementVisitor = new NestedStatementVisitor();
-        if(ctx.getChildCount() > 0) {
-            ctx.getChild(0).accept(nestedStatementVisitor);
-        }
-
-        if(nestedStatementVisitor.isBlockStatement) {
-            return super.visitStatement(ctx);
-        }
+    private void parseStatement(ParserRuleContext ctx, int stopTokenIndex) {
 
         Token startToken = ctx.start;
         int nextTokenIndex = ctx.start.getTokenIndex() + 1;
-        int stopTokenIndex = Math.min(ctx.stop.getTokenIndex(), nestedStatementVisitor.getTokenIndex());
 
         CodeLine codeLine = classFileCode.getCodeLineMap().get(startToken.getLine());
 
         if(codeLine == null) {
             //throw new ParseException("No code line found for statement starting at line: " + startToken.getLine() + " => " + startToken.getText());
             // Just skip this statement if we don't care about it
-            return super.visitStatement(ctx);
+            return;
         }
         if(codeLine.getStatementRange() != null) {
-            throw new ParseException("More than one statement found at code line: " + codeLine);
+            throw new ParseException("More than one statement found at code line: " + codeLine.getCode() + "Previous statement: '"
+                    + codeLine.getCode().substring(
+                            codeLine.getStatementRange().lowerEndpoint(), codeLine.getStatementRange().upperEndpoint())
+                    + "' Additional statement first token: '" + startToken.getText() + "'"
+            );
             // Just skip this statement if we don't care about it
             //return super.visitStatement(ctx);
         }
@@ -78,7 +71,47 @@ public class JavaStatementRecognizerVisitor extends Java9ParserBaseVisitor<Strin
                 startToken.getCharPositionInLine() - codeLine.getClassMethodCode().getMethodIndent(),
                 lastToken.getCharPositionInLine() - codeLine.getClassMethodCode().getMethodIndent()
         ));
+    }
 
+    @Override
+    public String visitStatement(Java9Parser.StatementContext ctx) {
+
+        NestedStatementVisitor nestedStatementVisitor = new NestedStatementVisitor();
+        if(ctx.getChildCount() > 0) {
+            ctx.getChild(0).accept(nestedStatementVisitor);
+        }
+
+        if(nestedStatementVisitor.isBlockStart) {
+            return super.visitStatement(ctx);
+        }
+
+        int stopTokenIndex = Math.min(ctx.stop.getTokenIndex(), nestedStatementVisitor.getTokenIndex());
+
+        parseStatement(ctx, stopTokenIndex);
         return super.visitStatement(ctx);
+    }
+
+    @Override
+    public String visitBlockStatement(Java9Parser.BlockStatementContext ctx) {
+
+        NestedStatementVisitor nestedStatementVisitor = new NestedStatementVisitor();
+        if(ctx.getChildCount() > 0) {
+            ctx.getChild(0).accept(nestedStatementVisitor);
+        }
+
+        if(nestedStatementVisitor.isBlockStart) {
+            return super.visitBlockStatement(ctx);
+        }
+
+        // Make sure we don't parse the same statement twice
+        if(nestedStatementVisitor.isStatement) {
+            return super.visitBlockStatement(ctx);
+        }
+
+        int stopTokenIndex = ctx.stop.getTokenIndex();
+
+        parseStatement(ctx, stopTokenIndex);
+
+        return super.visitBlockStatement(ctx);
     }
 }
